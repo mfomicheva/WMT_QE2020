@@ -142,8 +142,10 @@ class QEDataset(Dataset):
             filepath = [filepath]
             mt_filepath = [mt_filepath]
             wp_filepath = [wp_filepath]
-            features_path = [features_path]
+            features_path = [features_path] if features_path is not None else features_path
 
+        if features_path is None:
+            features_path = [None] * len(filepath)
         self.datasets = []
         for fp, mtp, wpp, featp in zip(filepath, mt_filepath, wp_filepath, features_path):
             dataset = []
@@ -189,6 +191,9 @@ class QEDatasetRoundRobin(object):
         self.all_datasets = None
         self.plc_datasets = []
         self.accum_grad = accum_grad
+
+        if features_path is None:
+            features_path = [None] * len(filepath)
 
         for fp, mtp, wpp, featp in zip(filepath, mt_filepath, wp_filepath, features_path):
             dataloader = DataLoader(QEDataset(fp, mtp, wpp, featp),
