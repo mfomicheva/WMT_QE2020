@@ -107,7 +107,7 @@ def eval(dataset, lcode, get_metrics=False):
 
         predicted_scores, actual_scores = [], []
         for batch, wps, z_scores, _, feats in tqdm(DataLoader(dataset, batch_size=batch_size, collate_fn=partial(
-                collate_fn, tokenizer=tokenizer, use_word_probs=args.use_word_probs, use_features=args.use_features),
+                collate_fn, tokenizer=tokenizer, use_word_probs=args.use_word_probs, num_features=args.num_features),
                                                               shuffle=False)):
             batch = [{k: v.to(gpu) for k, v in b.items()} for b in batch]
             wps = wps.to(gpu) if wps is not None else wps

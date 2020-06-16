@@ -1,23 +1,24 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class QE(nn.Module):
 
-    def __init__(self, transformer, dim, use_word_probs=False, use_features=False, encode_separately=False,
+    def __init__(self, transformer, dim, use_word_probs=False, num_features=None, encode_separately=False,
                  use_secondary_loss=False):
         super(QE, self).__init__()
         self.dim = dim
         self.transformer = transformer
         self.use_word_probs = use_word_probs
-        self.use_features = use_features
+        self.num_features = num_features
         self.encode_separately = encode_separately
         self.use_secondary_loss = use_secondary_loss
 
         self.num_transformer_layers = 3
 
         self.bert_output_dim = self.dim if not self.encode_separately else 2 * self.dim
+        if self.num_features is not None:
+            self.bert_output_dim += self.num_features
 
         if self.use_word_probs:
             self.wp_ff = nn.Sequential(nn.Linear(self.dim + 1, self.dim), nn.ReLU())
@@ -62,13 +63,12 @@ class QE(nn.Module):
                                                                 src_key_padding_mask=input[0]["attention_mask"] == 1)
                 joint_encodings = joint_encodings_wp.permute(1, 0, 2)
             encodings = joint_encodings[:, 0, :]
-            if self.use_features:
+            if self.num_features is not None:
                 try:
                     assert feats is not None
                 except AssertionError:
                     print('Warning! use_features is set to True but no features were provided')
-                features_inject = torch.transpose(feats, 1, 2)
-                encodings = torch.cat((encodings, features_inject), dim=2)
+                encodings = torch.cat((encodings, feats), dim=1)
 
         if self.use_secondary_loss:
             return self.ff_z_score(encodings), self.ff_da_score(encodings)

@@ -97,7 +97,7 @@ def get_wp_matrix(ids, mts, wps, tokenizer, target_only=False):
     return wp_matrix
 
 
-def collate_fn(batches, tokenizer, use_word_probs=False, use_features=False, encode_separately=False):
+def collate_fn(batches, tokenizer, use_word_probs=False, num_features=None, encode_separately=False):
     batch_text = []
     src_batch_text = []
     tgt_batch_text = []
@@ -129,7 +129,7 @@ def collate_fn(batches, tokenizer, use_word_probs=False, use_features=False, enc
     else:
         wp_matrix = None
 
-    if use_features:
+    if num_features is not None:
         feature_matrix = torch.tensor(features)
     else:
         feature_matrix = None

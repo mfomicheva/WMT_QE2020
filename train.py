@@ -20,7 +20,7 @@ parser.add_argument('--tgt', default="de")
 parser.add_argument('--model', default="bert")
 parser.add_argument('--output_prefix', required=True)
 parser.add_argument('--use_word_probs', nargs="?", const=True, default=False)
-parser.add_argument('--use_features', nargs="?", const=True, default=False)
+parser.add_argument('--num_features', default=None, type=int)
 parser.add_argument('--encode_separately', nargs="?", const=True, default=False)
 parser.add_argument('--use_secondary_loss', nargs="?", const=True, default=False)
 parser.add_argument('--num_gpus', type=int, default=1)
@@ -30,7 +30,7 @@ print(args)
 src_lcode = args.src
 tgt_lcode = args.tgt
 
-epochs = 20
+epochs = 1
 #model specific configuration
 if args.model.lower() == "xlm":
     model_name = "xlm-mlm-100-1280"
@@ -73,6 +73,7 @@ transformer = AutoModel.from_pretrained(model_name)
 model = QE(transformer,
         model_dim,
         use_word_probs = args.use_word_probs,
+        num_features=args.num_features,
         encode_separately=args.encode_separately,
         use_secondary_loss=args.use_secondary_loss)
 
@@ -88,7 +89,7 @@ filedir = "data/%s-%s"%(src_lcode, tgt_lcode) if src_lcode != "all" else "data/*
 train_file = glob("%s/train*.tsv" % filedir)
 train_mt_file = glob("%s/word-probas/mt.train*" % filedir)
 train_wp_file = glob("%s/word-probas/word_probas.train*" % filedir)
-train_features_file = glob("%s/features.train.tsv" % filedir) if args.use_features else None
+train_features_file = glob("%s/features.train.tsv" % filedir) if args.num_features else None
 train_dataset = QEDataset(train_file, train_mt_file, train_wp_file, features_path=train_features_file)
 
 if src_lcode == "all":
@@ -102,13 +103,13 @@ for src_lcode, tgt_lcode in lcodes:
     dev_file = glob("%s/dev*.tsv" % filedir)
     dev_mt_file = glob("%s/word-probas/mt.dev*" % filedir)
     dev_wp_file = glob("%s/word-probas/word_probas.dev*" % filedir)
-    dev_features_file = glob("%s/features.dev.tsv" % filedir) if args.use_features else None
+    dev_features_file = glob("%s/features.dev.tsv" % filedir) if args.num_features else None
     dev_datasets.append(((src_lcode, tgt_lcode), QEDataset(dev_file, dev_mt_file, dev_wp_file, features_path=dev_features_file)))
 
     test_file = glob("%s/test20*.tsv" % filedir)
     test_mt_file = glob("%s/word-probas/mt.test20*" % filedir)
     test_wp_file = glob("%s/word-probas/word_probas.test20*" % filedir)
-    test_features_file = glob("%s/features.test20.tsv" % filedir) if args.use_features else None
+    test_features_file = glob("%s/features.test20.tsv" % filedir) if args.num_features else None
     test_datasets.append(((src_lcode, tgt_lcode), QEDataset(test_file, test_mt_file, test_wp_file, features_path=test_features_file)))
 
 log_file = args.output_prefix + ".log"
@@ -122,7 +123,7 @@ def eval(dataset, get_metrics=False):
             tokenizer=tokenizer,
             use_word_probs=args.use_word_probs,
             encode_separately=args.encode_separately,
-            use_features=args.use_features), shuffle=False)):
+            num_features=args.num_features), shuffle=False)):
         batch = [{k: v.to(gpu) for k, v in b.items()} for b in batch]
         wps = wps.to(gpu) if wps is not None else wps
 
@@ -153,7 +154,7 @@ for epoch in range(epochs):
             collate_fn,
             tokenizer=tokenizer,
             use_word_probs=args.use_word_probs,
-            use_features=args.use_features,
+            num_features=args.num_features,
             encode_separately=args.encode_separately), shuffle=True)):
         batch = [{k: v.to(gpu) for k, v in b.items()} for b in batch]
         wps = wps.to(gpu) if wps is not None else wps
