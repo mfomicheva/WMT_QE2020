@@ -25,6 +25,7 @@ parser.add_argument('--encode_separately', nargs="?", const=True, default=False)
 parser.add_argument('--use_secondary_loss', nargs="?", const=True, default=False)
 parser.add_argument('--num_gpus', type=int, default=1)
 parser.add_argument('--epochs', type=int, default=20)
+parser.add_argument('--seed', type=int, default=1)
 args = parser.parse_args()
 print(args)
 
@@ -65,6 +66,10 @@ else:
     accum_grad = 1
     if args.use_word_probs:
         batch_size = 12
+
+# fix seed
+np.random.seed(args.seed)
+torch.manual_seed(args.seed)
 
 #load model and optimizer
 gpu=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
