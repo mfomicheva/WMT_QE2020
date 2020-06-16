@@ -24,13 +24,14 @@ parser.add_argument('--num_features', default=None, type=int)
 parser.add_argument('--encode_separately', nargs="?", const=True, default=False)
 parser.add_argument('--use_secondary_loss', nargs="?", const=True, default=False)
 parser.add_argument('--num_gpus', type=int, default=1)
+parser.add_argument('--epochs', type=int, default=20)
 args = parser.parse_args()
 print(args)
 
 src_lcode = args.src
 tgt_lcode = args.tgt
 
-epochs = 1
+epochs = args.epochs
 #model specific configuration
 if args.model.lower() == "xlm":
     model_name = "xlm-mlm-100-1280"
