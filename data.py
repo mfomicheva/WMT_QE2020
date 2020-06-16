@@ -169,7 +169,7 @@ class QEDataset(Dataset):
 
             if featp is not None:
                 for i, l in enumerate(open(featp)):
-                    dataset[i]["feats"] = l.strip().split()
+                    dataset[i]["feats"] = [float(s) for s in l.strip().split()]
 
             #random 50%
             #import random
