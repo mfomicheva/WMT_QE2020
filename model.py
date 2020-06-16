@@ -63,12 +63,12 @@ class QE(nn.Module):
                                                                 src_key_padding_mask=input[0]["attention_mask"] == 1)
                 joint_encodings = joint_encodings_wp.permute(1, 0, 2)
             encodings = joint_encodings[:, 0, :]
-            if self.num_features is not None:
-                try:
-                    assert feats is not None
-                except AssertionError:
-                    print('Warning! use_features is set to True but no features were provided')
-                encodings = torch.cat((encodings, feats), dim=1)
+        if self.num_features is not None:
+            try:
+                assert feats is not None
+            except AssertionError:
+                print('Warning! use_features is set to True but no features were provided')
+            encodings = torch.cat((encodings, feats), dim=1)
 
         if self.use_secondary_loss:
             return self.ff_z_score(encodings), self.ff_da_score(encodings)
