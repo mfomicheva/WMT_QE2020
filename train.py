@@ -5,6 +5,7 @@ import numpy as np
 from data import QEDataset, collate_fn
 from model import QE
 from torch.utils.data import DataLoader
+from torch import nn
 from transformers import AutoTokenizer, AutoModel, AdamW, get_linear_schedule_with_warmup
 from functools import partial
 from scipy.stats import pearsonr
@@ -19,6 +20,7 @@ parser.add_argument('--tgt', default="de")
 parser.add_argument('--model', default="bert")
 parser.add_argument('--output_prefix', required=True)
 parser.add_argument('--use_word_probs', nargs="?", const=True, default=False)
+parser.add_argument('--use_features', nargs="?", const=True, default=False)
 parser.add_argument('--encode_separately', nargs="?", const=True, default=False)
 parser.add_argument('--use_secondary_loss', nargs="?", const=True, default=False)
 parser.add_argument('--num_gpus', type=int, default=1)
@@ -39,14 +41,14 @@ if args.model.lower() == "xlm":
     accum_grad = 1
 elif args.model.lower() == "xlm_roberta":
     model_name = "xlm-roberta-base"
-    model_dim=  768
+    model_dim = 768
     learning_rate = 1e-6
     batch_size = 16 * args.num_gpus
     eval_interval = 100
     accum_grad = 1
 elif args.model.lower() == "xlm_roberta_large":
     model_name = "xlm-roberta-large"
-    model_dim=  1024
+    model_dim = 1024
     learning_rate = 1e-6
     batch_size = 8 * args.num_gpus
     eval_interval = 100
@@ -68,9 +70,9 @@ gpu=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 transformer = AutoModel.from_pretrained(model_name)
 
-model = QE(transformer, 
-        model_dim, 
-        use_word_probs = args.use_word_probs, 
+model = QE(transformer,
+        model_dim,
+        use_word_probs = args.use_word_probs,
         encode_separately=args.encode_separately,
         use_secondary_loss=args.use_secondary_loss)
 
@@ -86,7 +88,8 @@ filedir = "data/%s-%s"%(src_lcode, tgt_lcode) if src_lcode != "all" else "data/*
 train_file = glob("%s/train*.tsv" % filedir)
 train_mt_file = glob("%s/word-probas/mt.train*" % filedir)
 train_wp_file = glob("%s/word-probas/word_probas.train*" % filedir)
-train_dataset = QEDataset(train_file, train_mt_file, train_wp_file)
+train_features_file = glob("%s/train.features.tsv" % filedir) if args.use_features else None
+train_dataset = QEDataset(train_file, train_mt_file, train_wp_file, features_path=train_features_file)
 
 if src_lcode == "all":
     lcodes = [("en","de"),("en","zh"),("ro","en"),("et","en"),("si","en"),("ne","en"), ("ru", "en")]
@@ -99,12 +102,14 @@ for src_lcode, tgt_lcode in lcodes:
     dev_file = glob("%s/dev*.tsv" % filedir)
     dev_mt_file = glob("%s/word-probas/mt.dev*" % filedir)
     dev_wp_file = glob("%s/word-probas/word_probas.dev*" % filedir)
-    dev_datasets.append(((src_lcode, tgt_lcode), QEDataset(dev_file, dev_mt_file, dev_wp_file)))
+    dev_features_file = glob("%s/dev.features.tsv" % filedir) if args.use_features else None
+    dev_datasets.append(((src_lcode, tgt_lcode), QEDataset(dev_file, dev_mt_file, dev_wp_file, features_path=dev_features_file)))
 
     test_file = glob("%s/test20*.tsv" % filedir)
     test_mt_file = glob("%s/word-probas/mt.test20*" % filedir)
     test_wp_file = glob("%s/word-probas/word_probas.test20*" % filedir)
-    test_datasets.append(((src_lcode, tgt_lcode), QEDataset(test_file, test_mt_file, test_wp_file)))
+    test_features_file = glob("%s/test20.features.tsv" % filedir) if args.use_features else None
+    test_datasets.append(((src_lcode, tgt_lcode), QEDataset(test_file, test_mt_file, test_wp_file, features_path=test_features_file)))
 
 log_file = args.output_prefix + ".log"
 flog = open(log_file, "w")
@@ -112,13 +117,18 @@ flog = open(log_file, "w")
 def eval(dataset, get_metrics=False):
     model.eval()
     predicted_scores, actual_scores = [], []
-    for batch, wps, z_scores, _ in tqdm(DataLoader(dataset, batch_size=batch_size, collate_fn=partial(collate_fn, tokenizer=tokenizer, use_word_probs = args.use_word_probs, encode_separately=args.encode_separately), shuffle=False)):
+    for batch, wps, z_scores, _, feats in tqdm(DataLoader(dataset, batch_size=batch_size, collate_fn=partial(
+            collate_fn,
+            tokenizer=tokenizer,
+            use_word_probs=args.use_word_probs,
+            encode_separately=args.encode_separately,
+            use_features=args.use_features), shuffle=False)):
         batch = [{k: v.to(gpu) for k, v in b.items()} for b in batch]
         wps = wps.to(gpu) if wps is not None else wps
 
         #force nan to be 0, this deals with bad inputs from si-en dataset
         z_score_outputs, _ = model(batch, wps)
-        z_score_outputs[torch.isnan(z_score_outputs)] = 0 
+        z_score_outputs[torch.isnan(z_score_outputs)] = 0
         predicted_scores += z_score_outputs.flatten().tolist()
 
         actual_scores += z_scores
@@ -139,7 +149,12 @@ for epoch in range(epochs):
     print("Epoch ", epoch)
     total_loss = 0
     total_batches = 0
-    for batch, wps, z_scores, da_scores in tqdm(DataLoader(train_dataset, batch_size=batch_size, collate_fn=partial(collate_fn, tokenizer=tokenizer, use_word_probs=args.use_word_probs, encode_separately=args.encode_separately), shuffle=True)):
+    for batch, wps, z_scores, da_scores, feats in tqdm(DataLoader(train_dataset, batch_size=batch_size, collate_fn=partial(
+            collate_fn,
+            tokenizer=tokenizer,
+            use_word_probs=args.use_word_probs,
+            use_features=args.use_features,
+            encode_separately=args.encode_separately), shuffle=True)):
         batch = [{k: v.to(gpu) for k, v in b.items()} for b in batch]
         wps = wps.to(gpu) if wps is not None else wps
         z_scores = torch.tensor(z_scores).to(gpu)

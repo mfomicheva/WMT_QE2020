@@ -1,7 +1,7 @@
 import torch
-from collections import defaultdict
+
 from torch.utils.data import Dataset, DataLoader
-from tqdm import tqdm
+
 
 def get_wp_matrix(ids, mts, wps, tokenizer, target_only=False):
     wp_matrix = []
@@ -36,9 +36,9 @@ def get_wp_matrix(ids, mts, wps, tokenizer, target_only=False):
                 if retry > 10:
                     mt_i += 1
                     wp_i += 1
-                    if mt_i == len(mt_toks): 
+                    if mt_i == len(mt_toks):
                         break
-                    else: 
+                    else:
                         next_mt_tok = mt_toks[mt_i]
                 else:
                     retry += 1
@@ -97,12 +97,13 @@ def get_wp_matrix(ids, mts, wps, tokenizer, target_only=False):
     return wp_matrix
 
 
-def collate_fn(batches, tokenizer, use_word_probs=False, encode_separately=False):
+def collate_fn(batches, tokenizer, use_word_probs=False, use_features=False, encode_separately=False):
     batch_text = []
     src_batch_text = []
     tgt_batch_text = []
     mts = []
     wps = []
+    features = []
     batch_z_scores = []
     batch_da_scores = []
 
@@ -112,6 +113,7 @@ def collate_fn(batches, tokenizer, use_word_probs=False, encode_separately=False
         batch_text.append((batch["source"], batch["target"]))
         mts.append(batch["mt"])
         wps.append(batch["wp"])
+        features.append(batch["feats"])
 
         batch_z_scores.append(batch["z_score"])
         batch_da_scores.append(batch["da_score"])
@@ -126,18 +128,24 @@ def collate_fn(batches, tokenizer, use_word_probs=False, encode_separately=False
         wp_matrix = torch.tensor(wp_matrix)
     else:
         wp_matrix = None
-    return tokenized, wp_matrix, batch_z_scores, batch_da_scores
+
+    if use_features:
+        feature_matrix = torch.tensor(features)
+    else:
+        feature_matrix = None
+    return tokenized, wp_matrix, batch_z_scores, batch_da_scores, feature_matrix
 
 
 class QEDataset(Dataset):
-    def __init__(self, filepath, mt_filepath, wp_filepath):
+    def __init__(self, filepath, mt_filepath, wp_filepath, features_path=None):
         if type(filepath) == type("str"):
             filepath = [filepath]
             mt_filepath = [mt_filepath]
             wp_filepath = [wp_filepath]
+            features_path = [features_path]
 
         self.datasets = []
-        for fp, mtp, wpp in zip(filepath, mt_filepath, wp_filepath):
+        for fp, mtp, wpp, featp in zip(filepath, mt_filepath, wp_filepath, features_path):
             dataset = []
 
             for i, l in enumerate(open(fp)):
@@ -155,9 +163,13 @@ class QEDataset(Dataset):
                                    "z_score": zmean_score})
 
             for i, (l, l2) in enumerate(zip(open(mtp), open(wpp))):
-               dataset[i]["mt"] = l.strip().split()
-               dataset[i]["wp"] = l2.strip().split()
+                dataset[i]["mt"] = l.strip().split()
+                dataset[i]["wp"] = l2.strip().split()
+                dataset[i]["feats"] = None
 
+            if featp is not None:
+                for i, l in enumerate(open(featp)):
+                    dataset[i]["feats"] = l.strip().split()
 
             #random 50%
             #import random
@@ -173,13 +185,13 @@ class QEDataset(Dataset):
         return self.datasets[index]
 
 class QEDatasetRoundRobin(object):
-    def __init__(self, filepath, mt_filepath, wp_filepath, batch_size, collate_fn, accum_grad=1):
+    def __init__(self, filepath, mt_filepath, wp_filepath, batch_size, collate_fn, features_path=None, accum_grad=1):
         self.all_datasets = None
         self.plc_datasets = []
         self.accum_grad = accum_grad
 
-        for fp, mtp, wpp in zip(filepath, mt_filepath, wp_filepath):
-            dataloader = DataLoader(QEDataset(fp, mtp, wpp), 
+        for fp, mtp, wpp, featp in zip(filepath, mt_filepath, wp_filepath, features_path):
+            dataloader = DataLoader(QEDataset(fp, mtp, wpp, featp),
                                     batch_size=batch_size, 
                                     collate_fn=collate_fn, 
                                     shuffle=True)
