@@ -38,7 +38,7 @@ class QE(nn.Module):
                 nn.Dropout(0.1),
                 nn.Linear(4 * self.dim, 1))
 
-    def forward(self, input, wp, feats):
+    def forward(self, input, wp, feats=None):
         if self.encode_separately:
             src_batch = input[0]
             tgt_batch = input[1]
@@ -63,6 +63,10 @@ class QE(nn.Module):
                 joint_encodings = joint_encodings_wp.permute(1, 0, 2)
             encodings = joint_encodings[:, 0, :]
             if self.use_features:
+                try:
+                    assert feats is not None
+                except AssertionError:
+                    print('Warning! use_features is set to True but no features were provided')
                 features_inject = torch.transpose(feats, 1, 2)
                 encodings = torch.cat((encodings, features_inject), dim=2)
 

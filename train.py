@@ -158,7 +158,7 @@ for epoch in range(epochs):
         batch = [{k: v.to(gpu) for k, v in b.items()} for b in batch]
         wps = wps.to(gpu) if wps is not None else wps
         z_scores = torch.tensor(z_scores).to(gpu)
-        z_score_outputs, da_score_outputs  = model(batch, wps)
+        z_score_outputs, da_score_outputs  = model(batch, wps, feats=feats)
 
         #drop batch with nan
         if torch.isnan(z_score_outputs).any():
