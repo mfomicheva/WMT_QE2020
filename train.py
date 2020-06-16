@@ -102,13 +102,13 @@ for src_lcode, tgt_lcode in lcodes:
     dev_file = glob("%s/dev*.tsv" % filedir)
     dev_mt_file = glob("%s/word-probas/mt.dev*" % filedir)
     dev_wp_file = glob("%s/word-probas/word_probas.dev*" % filedir)
-    dev_features_file = glob("%s/dev.features.tsv" % filedir) if args.use_features else None
+    dev_features_file = glob("%s/features.dev.tsv" % filedir) if args.use_features else None
     dev_datasets.append(((src_lcode, tgt_lcode), QEDataset(dev_file, dev_mt_file, dev_wp_file, features_path=dev_features_file)))
 
     test_file = glob("%s/test20*.tsv" % filedir)
     test_mt_file = glob("%s/word-probas/mt.test20*" % filedir)
     test_wp_file = glob("%s/word-probas/word_probas.test20*" % filedir)
-    test_features_file = glob("%s/test20.features.tsv" % filedir) if args.use_features else None
+    test_features_file = glob("%s/features.test20.tsv" % filedir) if args.use_features else None
     test_datasets.append(((src_lcode, tgt_lcode), QEDataset(test_file, test_mt_file, test_wp_file, features_path=test_features_file)))
 
 log_file = args.output_prefix + ".log"
