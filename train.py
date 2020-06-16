@@ -127,9 +127,10 @@ def eval(dataset, get_metrics=False):
             num_features=args.num_features), shuffle=False)):
         batch = [{k: v.to(gpu) for k, v in b.items()} for b in batch]
         wps = wps.to(gpu) if wps is not None else wps
+        feats = feats.to(gpu) if feats is not None else feats
 
         #force nan to be 0, this deals with bad inputs from si-en dataset
-        z_score_outputs, _ = model(batch, wps)
+        z_score_outputs, _ = model(batch, wps, feats=feats)
         z_score_outputs[torch.isnan(z_score_outputs)] = 0
         predicted_scores += z_score_outputs.flatten().tolist()
 
@@ -159,6 +160,7 @@ for epoch in range(epochs):
             encode_separately=args.encode_separately), shuffle=True)):
         batch = [{k: v.to(gpu) for k, v in b.items()} for b in batch]
         wps = wps.to(gpu) if wps is not None else wps
+        feats = feats.to(gpu) if feats is not None else feats
         z_scores = torch.tensor(z_scores).to(gpu)
         z_score_outputs, da_score_outputs  = model(batch, wps, feats=feats)
 

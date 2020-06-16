@@ -111,9 +111,10 @@ def eval(dataset, lcode, get_metrics=False):
                                                               shuffle=False)):
             batch = [{k: v.to(gpu) for k, v in b.items()} for b in batch]
             wps = wps.to(gpu) if wps is not None else wps
+            feats = feats.to(gpu) if feats is not None else feats
 
             # force nan to be 0, this deals with bad inputs from si-en dataset
-            z_score_outputs, _ = model(batch, wps, lcode)
+            z_score_outputs, _ = model(batch, wps, lcode, feats=feats)
             z_score_outputs[torch.isnan(z_score_outputs)] = 0
             predicted_scores += z_score_outputs.flatten().tolist()
             actual_scores += z_scores

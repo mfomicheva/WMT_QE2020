@@ -3,11 +3,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class QE(nn.Module):
-    def __init__(self, transformer, dim, lcodes, use_word_probs=False):
+    def __init__(self, transformer, dim, lcodes, use_word_probs=False, num_features=None):
         super(QE, self).__init__()
         self.dim = dim
         self.transformer = transformer
         self.use_word_probs=use_word_probs
+
+        self.num_features = num_features
+        if self.num_features is not None:
+            self.dim += self.num_features
 
         self.num_transformer_layers = 3
 
@@ -23,7 +27,7 @@ class QE(nn.Module):
                                             nn.Linear(4*self.dim, 1))
                                             for lcode in [("all", "all")] + lcodes})
 
-    def forward(self, input, wp, lcode):
+    def forward(self, input, wp, lcode, feats=None):
         lcode = "_".join(lcode)
         joint_encodings = self.transformer(**input[0])[0]
         if self.use_word_probs:
@@ -32,6 +36,12 @@ class QE(nn.Module):
                 joint_encodings_wp = self.wp_transformer[i](joint_encodings_wp, src_key_padding_mask = input[0]["attention_mask"]==1)
             joint_encodings = joint_encodings_wp.permute(1,0,2)
         encodings = joint_encodings[:,0,:]
+        if self.num_features is not None:
+            try:
+                assert feats is not None
+            except AssertionError:
+                print('Warning! use_features is set to True but no features were provided')
+            encodings = torch.cat((encodings, feats), dim=1)
 
         mlp_output = self.mlp_layers[lcode](encodings)
 
