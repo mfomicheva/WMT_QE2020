@@ -34,7 +34,7 @@ output_dir = os.path.join(args.output_dir, 'run_{}'.format(args.run_id))
 try:
     assert not os.path.exists(output_dir)
 except AssertionError:
-    print('Fatal! Output directory exists!')
+    print('Fatal! Output directory exists:'.format(output_dir))
     raise
 os.mkdir(output_dir)
 
