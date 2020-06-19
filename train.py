@@ -105,7 +105,7 @@ train_features_file = glob("%s/features.train.tsv" % filedir) if args.num_featur
 train_dataset = QEDataset(train_file, train_mt_file, train_wp_file, features_path=train_features_file)
 
 if src_lcode == "all":
-    lcodes = [("en","de"),("en","zh"),("ro","en"),("et","en"),("si","en"),("ne","en"), ("ru", "en")]
+    lcodes = [("en","de"),("en","zh"),("ro","en"),("et","en"),("si","en"),("ne","en")]
 else:
     lcodes = [(src_lcode, tgt_lcode)]
 
