@@ -108,7 +108,7 @@ filedir = "data/%s-%s"%(src_lcode, tgt_lcode) if src_lcode != "all" else "data/*
 train_file = glob("%s/train.*.tsv" % filedir)
 train_mt_file = glob("%s/word-probas/mt.train.*" % filedir)
 train_wp_file = glob("%s/word-probas/word_probas.train.*" % filedir)
-train_features_file = glob("%s/features.train.tsv" % filedir) if args.num_features else None
+train_features_file = glob("%s/*features.train.tsv" % filedir) if args.num_features else None
 train_dataset = QEDataset(train_file, train_mt_file, train_wp_file, features_path=train_features_file)
 
 for path in train_file + train_mt_file + train_wp_file:
