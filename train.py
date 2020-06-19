@@ -1,4 +1,5 @@
 import sys
+import os
 import torch
 import math
 import numpy as np
@@ -18,16 +19,18 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--src', default="en")
 parser.add_argument('--tgt', default="de")
 parser.add_argument('--model', default="bert")
-parser.add_argument('--output_prefix', required=True)
+parser.add_argument('--output_dir', required=True)
 parser.add_argument('--use_word_probs', nargs="?", const=True, default=False)
 parser.add_argument('--num_features', default=None, type=int)
 parser.add_argument('--encode_separately', nargs="?", const=True, default=False)
 parser.add_argument('--use_secondary_loss', nargs="?", const=True, default=False)
 parser.add_argument('--num_gpus', type=int, default=1)
 parser.add_argument('--epochs', type=int, default=20)
-parser.add_argument('--seed', type=int, default=1)
+parser.add_argument('--run_id', type=int, default=1)
 args = parser.parse_args()
 print(args)
+
+output_dir = os.path.join(args.output_dir, args.run_id)
 
 src_lcode = args.src
 tgt_lcode = args.tgt
@@ -66,10 +69,6 @@ else:
     accum_grad = 1
     if args.use_word_probs:
         batch_size = 12
-
-# fix seed
-np.random.seed(args.seed)
-torch.manual_seed(args.seed)
 
 #load model and optimizer
 gpu=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -113,19 +112,19 @@ else:
 dev_datasets, test_datasets = [], []
 for src_lcode, tgt_lcode in lcodes:
     filedir = "data/%s-%s"%(src_lcode, tgt_lcode)
-    dev_file = glob("%s/dev*.tsv" % filedir)
-    dev_mt_file = glob("%s/word-probas/mt.dev*" % filedir)
-    dev_wp_file = glob("%s/word-probas/word_probas.dev*" % filedir)
-    dev_features_file = glob("%s/features.dev.tsv" % filedir) if args.num_features else None
+    dev_file = glob("%s/traindev*.tsv" % filedir)
+    dev_mt_file = glob("%s/word-probas/mt.traindev*" % filedir)
+    dev_wp_file = glob("%s/word-probas/word_probas.traindev*" % filedir)
+    dev_features_file = glob("%s/*features.traindev.tsv" % filedir) if args.num_features else None
     dev_datasets.append(((src_lcode, tgt_lcode), QEDataset(dev_file, dev_mt_file, dev_wp_file, features_path=dev_features_file)))
 
-    test_file = glob("%s/test20*.tsv" % filedir)
-    test_mt_file = glob("%s/word-probas/mt.test20*" % filedir)
-    test_wp_file = glob("%s/word-probas/word_probas.test20*" % filedir)
-    test_features_file = glob("%s/features.test20.tsv" % filedir) if args.num_features else None
+    test_file = glob("%s/dev*.tsv" % filedir)
+    test_mt_file = glob("%s/word-probas/mt.dev*" % filedir)
+    test_wp_file = glob("%s/word-probas/word_probas.dev*" % filedir)
+    test_features_file = glob("%s/*features.dev.tsv" % filedir) if args.num_features else None
     test_datasets.append(((src_lcode, tgt_lcode), QEDataset(test_file, test_mt_file, test_wp_file, features_path=test_features_file)))
 
-log_file = args.output_prefix + ".log"
+log_file = os.path.join(output_dir, "log")
 flog = open(log_file, "w")
 
 def eval(dataset, get_metrics=False):
@@ -220,7 +219,7 @@ for epoch in range(epochs):
                     best_eval = avg_pearson
                     print()
                     for lcodes, predicted_scores, _, _ in dev_results:
-                        best_dev_file = args.output_prefix + ".%s%s.dev.best.scores"%lcodes
+                        best_dev_file = os.path.join(output_dir, "%s%s.dev.best.scores" % lcodes)
                         print("Saving best dev results to: %s" % best_dev_file)
                         with open(best_dev_file, "w") as fout:
                             for score in predicted_scores:
@@ -229,11 +228,11 @@ for epoch in range(epochs):
                     test_results = []
                     print("\nCalculating results on test set(s)...")
                     for lcodes, test_dataset in test_datasets:
-                        predicted_scores, _, _ =  eval(test_dataset)
+                        predicted_scores, _, _ = eval(test_dataset)
                         test_results.append((lcodes, predicted_scores))
 
                     for lcodes, predicted_scores in test_results:
-                        best_test_file = args.output_prefix + ".%s%s.test.best.scores"%lcodes
+                        best_test_file = os.path.join(output_dir, "%s%s.test.best.scores" % lcodes)
                         print("Saving best test results to: %s" % best_test_file)
                         with open(best_test_file, "w") as fout:
                             for score in predicted_scores:
