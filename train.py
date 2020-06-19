@@ -83,6 +83,13 @@ model = QE(transformer,
         encode_separately=args.encode_separately,
         use_secondary_loss=args.use_secondary_loss)
 
+n_param = 0
+for p in model.parameters():
+    if p.requires_grad:
+        n_param += p.numel()
+
+print(n_param)
+
 if torch.cuda.device_count() > 1:
     model = nn.DataParallel(model)
 model = model.to(gpu)
