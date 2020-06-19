@@ -138,6 +138,13 @@ for src_lcode, tgt_lcode in lcodes:
     test_features_file = glob("%s/*features.dev.tsv" % filedir) if args.num_features else None
     test_datasets.append(((src_lcode, tgt_lcode), QEDataset(test_file, test_mt_file, test_wp_file, features_path=test_features_file)))
 
+    for path in dev_file + dev_mt_file + dev_wp_file + test_file + test_mt_file + test_wp_file:
+        assert os.path.exists(path)
+
+    if args.num_features:
+        for path in dev_features_file + test_features_file:
+            assert os.path.exists(path)
+
 log_file = os.path.join(output_dir, "log")
 flog = open(log_file, "w")
 
