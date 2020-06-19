@@ -31,6 +31,13 @@ args = parser.parse_args()
 print(args)
 
 output_dir = os.path.join(args.output_dir, 'run_{}'.format(args.run_id))
+try:
+    assert not os.path.exists(output_dir)
+except AssertionError:
+    print('Fatal! Output directory exists!')
+    raise
+os.mkdir(output_dir)
+
 
 src_lcode = args.src
 tgt_lcode = args.tgt
