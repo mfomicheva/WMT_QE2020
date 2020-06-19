@@ -115,7 +115,8 @@ for path in train_file + train_mt_file + train_wp_file:
     assert os.path.exists(path)
 
 if args.num_features:
-    assert os.path.exists(train_features_file)
+    for path in train_features_file:
+        assert os.path.exists(path)
 
 if src_lcode == "all":
     lcodes = [("en","de"),("en","zh"),("ro","en"),("et","en"),("si","en"),("ne","en")]
