@@ -26,11 +26,11 @@ parser.add_argument('--encode_separately', nargs="?", const=True, default=False)
 parser.add_argument('--use_secondary_loss', nargs="?", const=True, default=False)
 parser.add_argument('--num_gpus', type=int, default=1)
 parser.add_argument('--epochs', type=int, default=20)
-parser.add_argument('--run_id', type=int, default=1)
+parser.add_argument('--run_id', type=str, default=1)
 args = parser.parse_args()
 print(args)
 
-output_dir = os.path.join(args.output_dir, args.run_id)
+output_dir = os.path.join(args.output_dir, 'run_{}'.format(args.run_id))
 
 src_lcode = args.src
 tgt_lcode = args.tgt
