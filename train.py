@@ -1,18 +1,17 @@
-import sys
 import os
 import torch
-import math
-import numpy as np
 from data import QEDataset, collate_fn
 from model import QE
 from torch.utils.data import DataLoader
 from torch import nn
-from transformers import AutoTokenizer, AutoModel, AdamW, get_linear_schedule_with_warmup
+from transformers import AutoTokenizer, AutoModel
 from functools import partial
-from scipy.stats import pearsonr
 from glob import glob
 from tqdm import tqdm
 import argparse
+
+from evaluate import evaluate
+
 
 #arguments
 parser = argparse.ArgumentParser()
@@ -148,34 +147,11 @@ for src_lcode, tgt_lcode in lcodes:
 log_file = os.path.join(output_dir, "log")
 flog = open(log_file, "w")
 
-def eval(dataset, get_metrics=False):
-    model.eval()
-    predicted_scores, actual_scores = [], []
-    for batch, wps, z_scores, _, feats in tqdm(DataLoader(dataset, batch_size=batch_size, collate_fn=partial(
-            collate_fn,
-            tokenizer=tokenizer,
-            use_word_probs=args.use_word_probs,
-            encode_separately=args.encode_separately,
-            num_features=args.num_features), shuffle=False)):
-        batch = [{k: v.to(gpu) for k, v in b.items()} for b in batch]
-        wps = wps.to(gpu) if wps is not None else wps
-        feats = feats.to(gpu) if feats is not None else feats
 
-        #force nan to be 0, this deals with bad inputs from si-en dataset
-        z_score_outputs, _ = model(batch, wps, feats=feats)
-        z_score_outputs[torch.isnan(z_score_outputs)] = 0
-        predicted_scores += z_score_outputs.flatten().tolist()
+def save_model(model_to_save, out_dir, src_lang, tgt_lang):
+    best_model_file = os.path.join(out_dir, "model.%s%s" % (src_lang, tgt_lang))
+    torch.save(model_to_save.state_dict(), best_model_file)
 
-        actual_scores += z_scores
-    if get_metrics:
-        predicted_scores = np.array(predicted_scores)
-        actual_scores = np.array(actual_scores)
-        pearson = pearsonr(predicted_scores, actual_scores)[0]
-        mse = np.square(np.subtract(predicted_scores, actual_scores)).mean()
-    else:
-        pearson, mse = None, None
-    model.train()
-    return predicted_scores, pearson, mse
 
 global_steps = 0
 best_eval = 0
@@ -204,7 +180,6 @@ for epoch in range(epochs):
             del batch, wps, z_scores, da_scores, z_score_outputs, da_score_outputs
             continue
 
-
         loss = loss_fn(z_score_outputs.squeeze(), z_scores)
         cur_batch_size = z_score_outputs.size(0)
 
@@ -230,7 +205,9 @@ for epoch in range(epochs):
                 total_pearson, total = 0, 0
                 print("\nCalculating results on dev set(s)...")
                 for lcodes, dev_dataset in dev_datasets:
-                    predicted_scores, pearson, mse =  eval(dev_dataset, get_metrics=True)
+                    predicted_scores, pearson, mse = evaluate(
+                        dev_dataset, model, tokenizer, batch_size, gpu, use_word_probs=args.use_word_probs,
+                        num_features=args.num_features, encode_separately=args.encode_separately, get_metrics=True)
                     dev_results.append((lcodes, predicted_scores, pearson, mse))
                     total_pearson += pearson
                     total += 1
@@ -249,7 +226,9 @@ for epoch in range(epochs):
                     test_results = []
                     print("\nCalculating results on test set(s)...")
                     for lcodes, test_dataset in test_datasets:
-                        predicted_scores, _, _ = eval(test_dataset)
+                        predicted_scores, _, _ = evaluate(
+                            test_dataset, model, tokenizer, batch_size, gpu, use_word_probs=args.use_word_probs,
+                        num_features=args.num_features, encode_separately=args.encode_separately,)
                         test_results.append((lcodes, predicted_scores))
 
                     for lcodes, predicted_scores in test_results:
@@ -274,3 +253,4 @@ for epoch in range(epochs):
             break
     if early_stop > 25:
         break
+save_model(model, output_dir, src_lcode, tgt_lcode)
