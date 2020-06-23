@@ -15,6 +15,7 @@ def predict(args):
     transformer = AutoModel.from_pretrained(args.model_name)
     model = QE(transformer, args.model_dim, num_features=args.num_features)
     model.load_state_dict(torch.load(args.model_path))
+    model.to(gpu)
     model.eval()
 
     dataset = QEDataset(
