@@ -23,10 +23,10 @@ def predict(args):
     predicted_scores, pearson, mse = evaluate(
         dataset, model, tokenizer, args.batch_size, gpu, num_features=args.num_features, encode_separately=args.encode_separately,
         use_word_probs=args.use_word_probs, get_metrics=True)
-    with open(os.path.join(args.output_dir, 'predictions.tsv'), 'w') as fout:
+    with open(os.path.join(args.output_dir, 'predictions.{}{}.tsv'.format(args.src, args.tgt)), 'w') as fout:
         for score in predicted_scores:
             fout.write('{}\n'.format(score))
-    with open(os.path.join(args.output_dir, 'predict.correlation.log'), 'w') as fout:
+    with open(os.path.join(args.output_dir, 'predict.correlation.{}{}.log'.format(args.src, args.tgt)), 'w') as fout:
         fout.write('{}\n'.format(pearson))
 
 
